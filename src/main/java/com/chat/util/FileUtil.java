@@ -1,4 +1,4 @@
-package com.chatapp.util;
+package com.chat.util;
 
 import javax.servlet.http.Part;
 import java.io.File;

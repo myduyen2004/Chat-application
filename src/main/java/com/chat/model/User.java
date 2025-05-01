@@ -1,24 +1,34 @@
-package com.chatapp.model;
+package com.chat.model;
 
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class User {
     private int userId;
     private String username;
     private String password;
-    private String email;
-    private Timestamp createdAt;
+    private String displayName;
+    private String avatarUrl;
+    private Date createdAt;
 
-    // Constructors
-    public User() {}
-
-    public User(String username, String password, String email) {
-        this.username = username;
-        this.password = password;
-        this.email = email;
+    public User() {
     }
 
-    // Getters and Setters
+    public User(String username, String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    // Constructor đầy đủ
+    public User(int userId, String username, String password, String displayName, String avatarUrl, Date createdAt) {
+        this.userId = userId;
+        this.username = username;
+        this.password = password;
+        this.displayName = displayName;
+        this.avatarUrl = avatarUrl;
+        this.createdAt = createdAt;
+    }
+
+    // Getters và setters
     public int getUserId() {
         return userId;
     }
@@ -43,19 +53,27 @@ public class User {
         this.password = password;
     }
 
-    public String getEmail() {
-        return email;
+    public String getDisplayName() {
+        return displayName;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
-    public Timestamp getCreatedAt() {
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+
+    public Date getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(Timestamp createdAt) {
+    public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
     }
 }

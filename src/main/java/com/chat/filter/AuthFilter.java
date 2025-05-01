@@ -1,4 +1,4 @@
-package com.chatapp.filter;
+package com.chat.filter;
 
 import javax.servlet.*;
 import javax.servlet.annotation.WebFilter;

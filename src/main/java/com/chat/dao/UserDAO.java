@@ -1,57 +1,72 @@
-package com.chatapp.dao;
+package com.chat.dao;
 
-import com.chatapp.model.User;
+import com.chat.model.User;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import javax.sql.DataSource;
 
-public class UserDao {
-    private DataSource dataSource = DatabaseConfig.getDataSource();
+public class UserDAO {
 
-    public boolean createUser(User user) {
-        String sql = "INSERT INTO Users (username, password, email) VALUES (?, ?, ?)";
+    public User authenticate(String username, String password) {
+        String query = "SELECT * FROM Users WHERE username = ? AND password = ?";
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
 
-            stmt.setString(1, user.getUsername());
-            stmt.setString(2, user.getPassword()); // Note: In production, store hashed password
-            stmt.setString(3, user.getEmail());
+            ps.setString(1, username);
+            ps.setString(2, password); // Trong ứng dụng thực tế, mật khẩu nên được mã hóa
 
-            int affectedRows = stmt.executeUpdate();
-
-            if (affectedRows == 0) {
-                return false;
-            }
-
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    user.setUserId(generatedKeys.getInt(1));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    User user = new User();
+                    user.setUserId(rs.getInt("user_id"));
+                    user.setUsername(rs.getString("username"));
+                    user.setDisplayName(rs.getString("display_name"));
+                    user.setAvatarUrl(rs.getString("avatar_url"));
+                    user.setCreatedAt(rs.getTimestamp("created_at"));
+                    return user;
                 }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
-            return true;
+        return null;
+    }
+
+    public boolean registerUser(User user) {
+        String query = "INSERT INTO Users (username, password, display_name) VALUES (?, ?, ?)";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+
+            ps.setString(1, user.getUsername());
+            ps.setString(2, user.getPassword()); // Trong ứng dụng thực tế, mật khẩu nên được mã hóa
+            ps.setString(3, user.getDisplayName() != null ? user.getDisplayName() : user.getUsername());
+
+            int result = ps.executeUpdate();
+            return result > 0;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
 
-    public User getUserByUsername(String username) {
-        String sql = "SELECT * FROM Users WHERE username = ?";
+    public User getUserById(int userId) {
+        String query = "SELECT * FROM Users WHERE user_id = ?";
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
 
-            stmt.setString(1, username);
-            try (ResultSet rs = stmt.executeQuery()) {
+            ps.setInt(1, userId);
+
+            try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     User user = new User();
                     user.setUserId(rs.getInt("user_id"));
                     user.setUsername(rs.getString("username"));
-                    user.setPassword(rs.getString("password"));
-                    user.setEmail(rs.getString("email"));
+                    user.setDisplayName(rs.getString("display_name"));
+                    user.setAvatarUrl(rs.getString("avatar_url"));
                     user.setCreatedAt(rs.getTimestamp("created_at"));
                     return user;
                 }
@@ -63,67 +78,27 @@ public class UserDao {
         return null;
     }
 
-    public User authenticateUser(String username, String password) {
-        String sql = "SELECT * FROM Users WHERE username = ? AND password = ?";
+    public List<User> getAllUsers() {
+        List<User> users = new ArrayList<>();
+        String query = "SELECT * FROM Users";
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
 
-            stmt.setString(1, username);
-            stmt.setString(2, password); // Note: In production, compare hashed passwords
-
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    User user = new User();
-                    user.setUserId(rs.getInt("user_id"));
-                    user.setUsername(rs.getString("username"));
-                    user.setEmail(rs.getString("email"));
-                    user.setCreatedAt(rs.getTimestamp("created_at"));
-                    return user;
-                }
+            while (rs.next()) {
+                User user = new User();
+                user.setUserId(rs.getInt("user_id"));
+                user.setUsername(rs.getString("username"));
+                user.setDisplayName(rs.getString("display_name"));
+                user.setAvatarUrl(rs.getString("avatar_url"));
+                user.setCreatedAt(rs.getTimestamp("created_at"));
+                users.add(user);
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
 
-        return null;
-    }
-
-    public boolean isUsernameTaken(String username) {
-        String sql = "SELECT COUNT(*) FROM Users WHERE username = ?";
-
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, username);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) > 0;
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return false;
-    }
-
-    public boolean isEmailTaken(String email) {
-        String sql = "SELECT COUNT(*) FROM Users WHERE email = ?";
-
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-
-            stmt.setString(1, email);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) > 0;
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return false;
+        return users;
     }
 }

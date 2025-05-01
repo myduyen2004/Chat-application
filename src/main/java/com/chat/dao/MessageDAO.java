@@ -1,66 +1,85 @@
-package com.chatapp.dao;
+package com.chat.dao;
 
-import com.chatapp.model.Message;
+import com.chat.model.Message;
+import com.chat.model.User;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import javax.sql.DataSource;
 
 public class MessageDAO {
-    private DataSource dataSource = DatabaseConfig.getDataSource();
 
-    public void saveMessage(Message message) {
-        String sql = "INSERT INTO Messages (sender_id, content, attachment_path, is_sticker, sticker_id, reply_to_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+    public boolean saveMessage(Message message) {
+        String query = "INSERT INTO Messages (sender_id, content, replied_to_id, is_sticker, attachment_url) " +
+                "VALUES (?, ?, ?, ?, ?)";
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
 
-            stmt.setInt(1, message.getSenderId());
-            stmt.setString(2, message.getContent());
-            stmt.setString(3, message.getAttachmentPath());
-            stmt.setBoolean(4, message.isSticker());
-            stmt.setObject(5, message.getStickerId(), Types.INTEGER);
-            stmt.setObject(6, message.getReplyToId(), Types.INTEGER);
+            ps.setInt(1, message.getSenderId());
+            ps.setString(2, message.getContent());
 
-            stmt.executeUpdate();
+            if (message.getRepliedToId() != null) {
+                ps.setInt(3, message.getRepliedToId());
+            } else {
+                ps.setNull(3, java.sql.Types.INTEGER);
+            }
 
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
+            ps.setBoolean(4, message.isSticker());
+            ps.setString(5, message.getAttachmentUrl());
+
+            int result = ps.executeUpdate();
+
+            if (result > 0) {
+                ResultSet rs = ps.getGeneratedKeys();
                 if (rs.next()) {
                     message.setMessageId(rs.getInt(1));
                 }
+                return true;
             }
+
+            return false;
         } catch (SQLException e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-    public List<Message> getAllMessages() {
+    public List<Message> getRecentMessages(int limit) {
         List<Message> messages = new ArrayList<>();
-        String sql = "SELECT m.*, u.username as sender_name, rm.content as reply_content " +
+        String query = "SELECT m.*, u.username, u.display_name, " +
+                "rm.content as replied_content " +
                 "FROM Messages m " +
                 "JOIN Users u ON m.sender_id = u.user_id " +
-                "LEFT JOIN Messages rm ON m.reply_to_id = rm.message_id " +
-                "ORDER BY m.created_at";
+                "LEFT JOIN Messages rm ON m.replied_to_id = rm.message_id " +
+                "ORDER BY m.sent_time ASC " +
+                "OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY";
 
-        try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
 
-            while (rs.next()) {
-                Message message = new Message();
-                message.setMessageId(rs.getInt("message_id"));
-                message.setSenderId(rs.getInt("sender_id"));
-                message.setSender(rs.getString("sender_name"));
-                message.setContent(rs.getString("content"));
-                message.setAttachmentPath(rs.getString("attachment_path"));
-                message.setSticker(rs.getBoolean("is_sticker"));
-                message.setStickerId(rs.getInt("sticker_id"));
-                message.setReplyToId(rs.getInt("reply_to_id"));
-                message.setReplyToContent(rs.getString("reply_content"));
-                message.setCreatedAt(rs.getTimestamp("created_at"));
+            ps.setInt(1, limit);
 
-                messages.add(message);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Message message = new Message();
+                    message.setMessageId(rs.getInt("message_id"));
+                    message.setSenderId(rs.getInt("sender_id"));
+                    message.setSenderName(rs.getString("display_name") != null ?
+                            rs.getString("display_name") : rs.getString("username"));
+                    message.setContent(rs.getString("content"));
+                    message.setSentTime(rs.getTimestamp("sent_time"));
+
+                    Integer repliedToId = rs.getInt("replied_to_id");
+                    if (!rs.wasNull()) {
+                        message.setRepliedToId(repliedToId);
+                        message.setRepliedContent(rs.getString("replied_content"));
+                    }
+
+                    message.setSticker(rs.getBoolean("is_sticker"));
+                    message.setAttachmentUrl(rs.getString("attachment_url"));
+
+                    messages.add(message);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -70,31 +89,57 @@ public class MessageDAO {
     }
 
     public Message getMessageById(int messageId) {
-        String sql = "SELECT m.*, u.username as sender_name, rm.content as reply_content " +
+        String query = "SELECT m.*, u.username, u.display_name " +
                 "FROM Messages m " +
                 "JOIN Users u ON m.sender_id = u.user_id " +
-                "LEFT JOIN Messages rm ON m.reply_to_id = rm.message_id " +
                 "WHERE m.message_id = ?";
 
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
 
-            stmt.setInt(1, messageId);
-            try (ResultSet rs = stmt.executeQuery()) {
+            ps.setInt(1, messageId);
+
+            try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     Message message = new Message();
                     message.setMessageId(rs.getInt("message_id"));
                     message.setSenderId(rs.getInt("sender_id"));
-                    message.setSender(rs.getString("sender_name"));
+                    message.setSenderName(rs.getString("display_name") != null ?
+                            rs.getString("display_name") : rs.getString("username"));
                     message.setContent(rs.getString("content"));
-                    message.setAttachmentPath(rs.getString("attachment_path"));
+                    message.setSentTime(rs.getTimestamp("sent_time"));
+
+                    Integer repliedToId = rs.getInt("replied_to_id");
+                    if (!rs.wasNull()) {
+                        message.setRepliedToId(repliedToId);
+                        // Lấy nội dung tin nhắn được reply trong một truy vấn khác
+                        message.setRepliedContent(getMessageContent(repliedToId));
+                    }
+
                     message.setSticker(rs.getBoolean("is_sticker"));
-                    message.setStickerId(rs.getInt("sticker_id"));
-                    message.setReplyToId(rs.getInt("reply_to_id"));
-                    message.setReplyToContent(rs.getString("reply_content"));
-                    message.setCreatedAt(rs.getTimestamp("created_at"));
+                    message.setAttachmentUrl(rs.getString("attachment_url"));
 
                     return message;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private String getMessageContent(int messageId) {
+        String query = "SELECT content FROM Messages WHERE message_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+
+            ps.setInt(1, messageId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("content");
                 }
             }
         } catch (SQLException e) {

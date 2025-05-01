@@ -1,40 +1,40 @@
-package com.chatapp.model;
+package com.chat.model;
 
-import java.time.LocalDateTime;
+import java.util.Date;
 
 public class Message {
     private int messageId;
     private int senderId;
     private String senderName;
     private String content;
-    private LocalDateTime sentAt;
-    private Integer replyToId;
-    private String replyContent;
+    private Date sentTime;
+    private Integer repliedToId;
+    private boolean isSticker;
+    private String attachmentUrl;
+    private String repliedContent; // Để hiển thị nội dung tin nhắn được reply
 
     public Message() {
     }
 
-    public Message(int messageId, int senderId, String content, LocalDateTime sentAt, Integer replyToId) {
-        this.messageId = messageId;
+    public Message(int senderId, String content) {
         this.senderId = senderId;
         this.content = content;
-        this.sentAt = sentAt;
-        this.replyToId = replyToId;
+        this.sentTime = new Date();
     }
 
-    // Additional constructor with sender name for WebSocket communication
-    public Message(int messageId, int senderId, String senderName, String content,
-                   LocalDateTime sentAt, Integer replyToId, String replyContent) {
-        this.messageId = messageId;
+    // Constructor đầy đủ
+    public Message(int senderId, String senderName, String content, Integer repliedToId,
+                   boolean isSticker, String attachmentUrl) {
         this.senderId = senderId;
         this.senderName = senderName;
         this.content = content;
-        this.sentAt = sentAt;
-        this.replyToId = replyToId;
-        this.replyContent = replyContent;
+        this.sentTime = new Date();
+        this.repliedToId = repliedToId;
+        this.isSticker = isSticker;
+        this.attachmentUrl = attachmentUrl;
     }
 
-    // Getters and Setters
+    // Getters và setters
     public int getMessageId() {
         return messageId;
     }
@@ -67,39 +67,43 @@ public class Message {
         this.content = content;
     }
 
-    public LocalDateTime getSentAt() {
-        return sentAt;
+    public Date getSentTime() {
+        return sentTime;
     }
 
-    public void setSentAt(LocalDateTime sentAt) {
-        this.sentAt = sentAt;
+    public void setSentTime(Date sentTime) {
+        this.sentTime = sentTime;
     }
 
-    public Integer getReplyToId() {
-        return replyToId;
+    public Integer getRepliedToId() {
+        return repliedToId;
     }
 
-    public void setReplyToId(Integer replyToId) {
-        this.replyToId = replyToId;
+    public void setRepliedToId(Integer repliedToId) {
+        this.repliedToId = repliedToId;
     }
 
-    public String getReplyContent() {
-        return replyContent;
+    public boolean isSticker() {
+        return isSticker;
     }
 
-    public void setReplyContent(String replyContent) {
-        this.replyContent = replyContent;
+    public void setSticker(boolean sticker) {
+        isSticker = sticker;
     }
 
-    @Override
-    public String toString() {
-        return "Message{" +
-                "messageId=" + messageId +
-                ", senderId=" + senderId +
-                ", senderName='" + senderName + '\'' +
-                ", content='" + content + '\'' +
-                ", sentAt=" + sentAt +
-                ", replyToId=" + replyToId +
-                '}';
+    public String getAttachmentUrl() {
+        return attachmentUrl;
+    }
+
+    public void setAttachmentUrl(String attachmentUrl) {
+        this.attachmentUrl = attachmentUrl;
+    }
+
+    public String getRepliedContent() {
+        return repliedContent;
+    }
+
+    public void setRepliedContent(String repliedContent) {
+        this.repliedContent = repliedContent;
     }
 }
